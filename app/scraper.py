@@ -374,16 +374,26 @@ class GoWildScraper:
                 follow_redirects=True,
                 timeout=30.0,
             ) as client:
-                # Prime the session — Frontier's InternalSelect redirects to the
-                # generic Select page unless the booking homepage has set its
-                # session cookies first.
-                await client.get("https://booking.flyfrontier.com/")
+                # Prime the session by navigating to the route-specific search
+                # page first. InternalSelect is an AJAX endpoint that requires
+                # prior page context; hitting the homepage alone isn't enough.
+                prime_url = (
+                    f"https://booking.flyfrontier.com/Flight/Select"
+                    f"?o1={origin}&d1={destination}&dd1={_format_date(date)}&ADT=1&mon=true&promo="
+                )
+                await client.get(prime_url)
 
+                # Now call InternalSelect with AJAX headers so it returns
+                # flight data rather than redirecting to the generic select page.
+                ajax_headers = {
+                    **headers,
+                    "X-Requested-With": "XMLHttpRequest",
+                    "Accept": "text/html, */*; q=0.01",
+                    "Referer": prime_url,
+                }
                 logger.info("Fetching %s→%s on %s", origin, destination, date)
-                response = await client.get(url)
+                response = await client.get(url, headers=ajax_headers)
 
-                # If still redirected away from InternalSelect, the session
-                # prime didn't take — log and fall through to parse attempt.
                 if "InternalSelect" not in str(response.url):
                     logger.warning(
                         "InternalSelect redirected to %s for %s→%s",
