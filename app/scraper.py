@@ -290,7 +290,7 @@ class GoWildScraper:
         rng = random.Random(f"{origin}-{destination}-{date}")
         available = rng.random() < 0.55
 
-        prices = [5.60, 11.20, 0.00, 16.80]
+        prices = [5.60, 11.20, 16.80, 22.40]
         dep_times = ["06:15", "08:30", "10:45", "13:00", "15:20", "17:50", "19:10", "21:30"]
         duration_min = rng.randint(90, 300)
         dep_time = rng.choice(dep_times)
