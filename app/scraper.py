@@ -374,8 +374,21 @@ class GoWildScraper:
                 follow_redirects=True,
                 timeout=30.0,
             ) as client:
+                # Prime the session — Frontier's InternalSelect redirects to the
+                # generic Select page unless the booking homepage has set its
+                # session cookies first.
+                await client.get("https://booking.flyfrontier.com/")
+
                 logger.info("Fetching %s→%s on %s", origin, destination, date)
                 response = await client.get(url)
+
+                # If still redirected away from InternalSelect, the session
+                # prime didn't take — log and fall through to parse attempt.
+                if "InternalSelect" not in str(response.url):
+                    logger.warning(
+                        "InternalSelect redirected to %s for %s→%s",
+                        response.url, origin, destination,
+                    )
 
             if response.status_code == 403:
                 logger.warning("403 Forbidden for %s→%s — residential proxy required", origin, destination)
@@ -458,6 +471,10 @@ async def get_disabled_dates(origin: str, dest: str) -> set[datetime.date]:
     url = _build_schedule_url(origin, dest)
     try:
         async with _make_client(timeout=15.0, follow_redirects=True) as client:
+            await client.get(
+                "https://booking.flyfrontier.com/",
+                headers={"User-Agent": random.choice(_USER_AGENTS)},
+            )
             resp = await client.get(
                 url,
                 headers={"User-Agent": random.choice(_USER_AGENTS)},
