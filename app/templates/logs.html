@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}GoWild Radar — Logs{% endblock %}
+
+{% block content %}
+<div class="max-w-screen-xl mx-auto px-3 pt-4 pb-2">
+
+  <div class="flex items-center justify-between mb-4">
+    <h1 class="text-xl font-bold text-white">Scan Logs</h1>
+    <span class="text-xs text-gray-500 bg-gray-800 px-3 py-1 rounded-full border border-gray-700">
+      {{ logs|length }} results
+    </span>
+  </div>
+
+  {% if logs %}
+  <!-- Desktop table -->
+  <div class="hidden md:block bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs">
+        <thead>
+          <tr class="border-b border-gray-800 text-gray-500 uppercase tracking-wide">
+            <th class="text-left px-4 py-2.5">Time</th>
+            <th class="text-left px-4 py-2.5">Route</th>
+            <th class="text-left px-4 py-2.5">Date</th>
+            <th class="text-left px-4 py-2.5">Status</th>
+            <th class="text-left px-4 py-2.5">Price</th>
+            <th class="text-left px-4 py-2.5">Type</th>
+            <th class="text-right px-4 py-2.5">Duration</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-800/60">
+          {% for log in logs %}
+          <tr class="{% if log.gowild_available %}bg-green-950/20 hover:bg-green-950/30{% elif log.error %}bg-red-950/20 hover:bg-red-950/30{% else %}hover:bg-gray-800/30{% endif %} transition-colors">
+            <td class="px-4 py-2.5 text-gray-500 font-mono whitespace-nowrap">
+              {{ log.checked_at.strftime('%m/%d %H:%M') if log.checked_at else '—' }}
+            </td>
+            <td class="px-4 py-2.5 font-mono font-semibold">
+              <span class="text-white">{{ log.origin }}</span>
+              <span class="text-green-500 mx-1">→</span>
+              <span class="text-green-400">{{ log.destination }}</span>
+            </td>
+            <td class="px-4 py-2.5 text-gray-400 whitespace-nowrap">{{ log.departure_date or '—' }}</td>
+            <td class="px-4 py-2.5">
+              {% if log.gowild_available %}
+                <span class="text-green-400 font-semibold">✓ Available</span>
+              {% elif log.error %}
+                <span class="text-red-400">✗ Error</span>
+              {% else %}
+                <span class="text-gray-600">Unavailable</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-2.5 text-gray-400">{{ log.price_text or '—' }}</td>
+            <td class="px-4 py-2.5">
+              {% if log.is_nonstop %}
+                <span class="text-blue-400">Nonstop</span>
+              {% elif log.connection_info %}
+                <span class="text-gray-500">via {{ log.connection_info }}</span>
+              {% else %}
+                <span class="text-gray-700">—</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-2.5 text-right text-gray-600 font-mono">
+              {{ log.scan_duration_ms ~ 'ms' if log.scan_duration_ms else '—' }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Mobile cards -->
+  <div class="md:hidden space-y-2">
+    {% for log in logs %}
+    <div class="rounded-xl p-3 border {% if log.gowild_available %}bg-green-950/20 border-green-800/40{% elif log.error %}bg-red-950/20 border-red-900/40{% else %}bg-gray-900 border-gray-800{% endif %}">
+      <div class="flex items-center justify-between mb-1">
+        <span class="font-mono font-bold text-sm">
+          <span class="text-white">{{ log.origin }}</span>
+          <span class="text-green-500 mx-1">→</span>
+          <span class="text-green-400">{{ log.destination }}</span>
+        </span>
+        <span class="text-xs {% if log.gowild_available %}text-green-400 font-semibold{% elif log.error %}text-red-400{% else %}text-gray-600{% endif %}">
+          {% if log.gowild_available %}✓ Available{% elif log.error %}Error{% else %}Unavailable{% endif %}
+        </span>
+      </div>
+      <div class="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500">
+        <span>{{ log.departure_date or '—' }}</span>
+        <span>{{ log.departure_time or '' }}{% if log.arrival_time %} → {{ log.arrival_time }}{% endif %}</span>
+        {% if log.price_text %}<span class="text-green-500">{{ log.price_text }}</span>{% endif %}
+        {% if log.is_nonstop %}<span class="text-blue-400">Nonstop</span>{% elif log.connection_info %}<span>via {{ log.connection_info }}</span>{% endif %}
+        <span class="text-gray-700">{{ log.checked_at.strftime('%m/%d %H:%M') if log.checked_at else '' }}</span>
+        {% if log.scan_duration_ms %}<span class="text-gray-700">{{ log.scan_duration_ms }}ms</span>{% endif %}
+      </div>
+      {% if log.error %}
+      <p class="text-xs text-red-500 mt-1 font-mono truncate">{{ log.error }}</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <div class="bg-gray-900 border border-gray-800 rounded-xl py-16 text-center">
+    <p class="text-gray-600 text-sm">No scan results yet.</p>
+    <p class="text-gray-700 text-xs mt-1">Trigger a scan from the dashboard or wait for the scheduler to run.</p>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Auto-refresh logs every 30 seconds
+  setTimeout(() => location.reload(), 30000);
+</script>
+{% endblock %}

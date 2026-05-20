@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+{% block title %}GoWild Radar — Routes{% endblock %}
+
+{% block content %}
+<div class="max-w-screen-lg mx-auto px-3 pt-4 pb-2">
+
+  <div class="flex items-center justify-between mb-4">
+    <h1 class="text-xl font-bold text-white">Route Management</h1>
+    <span class="text-xs text-gray-500 bg-gray-800 px-3 py-1 rounded-full border border-gray-700">
+      {{ routes|length }} routes
+    </span>
+  </div>
+
+  <!-- Add route form -->
+  <div class="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-4">
+    <h2 class="text-sm font-semibold text-gray-300 mb-3">Add Route</h2>
+    <form method="post" action="/api/routes" class="flex flex-col sm:flex-row gap-2">
+      <input name="origin" type="text" maxlength="3" placeholder="Origin (e.g. ATL)" required
+             class="flex-1 bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-3 py-2.5 text-sm
+                    uppercase focus:outline-none focus:ring-1 focus:ring-green-500 placeholder-gray-600" />
+      <input name="destination" type="text" maxlength="3" placeholder="Destination (e.g. DEN)" required
+             class="flex-1 bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-3 py-2.5 text-sm
+                    uppercase focus:outline-none focus:ring-1 focus:ring-green-500 placeholder-gray-600" />
+      <button type="submit"
+              class="bg-green-700 hover:bg-green-600 active:bg-green-800 text-white font-semibold
+                     px-6 py-2.5 rounded-xl transition-colors text-sm whitespace-nowrap">
+        Add Route
+      </button>
+    </form>
+  </div>
+
+  <!-- CSV bulk upload -->
+  <div class="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-4">
+    <h2 class="text-sm font-semibold text-gray-300 mb-1">Bulk Import CSV</h2>
+    <p class="text-xs text-gray-600 mb-3">Format: one route per line — <code class="text-gray-500">ORIGIN,DESTINATION</code></p>
+    <div class="space-y-2">
+      <textarea id="csv-text" rows="4" placeholder="ATL,DEN&#10;ATL,LAS&#10;ATL,MCO"
+                class="w-full bg-gray-800 border border-gray-700 text-gray-300 rounded-lg px-3 py-2 text-sm
+                       font-mono focus:outline-none focus:ring-1 focus:ring-green-500 placeholder-gray-600 resize-y"></textarea>
+      <div class="flex gap-2 flex-wrap">
+        <label class="bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm px-4 py-2 rounded-lg cursor-pointer transition-colors">
+          Upload CSV
+          <input type="file" accept=".csv,.txt" id="csv-file-input" class="hidden" />
+        </label>
+        <button id="load-csv-btn"
+                class="bg-green-700 hover:bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
+          Load Routes
+        </button>
+        <button id="load-seed-btn"
+                class="bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm px-4 py-2 rounded-lg transition-colors">
+          Load ATL Seed Routes
+        </button>
+      </div>
+      <div id="csv-result" class="text-xs text-gray-500 hidden"></div>
+    </div>
+  </div>
+
+  <!-- Route list -->
+  <div class="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-3 border-b border-gray-800">
+      <h2 class="text-sm font-semibold text-gray-300">All Routes</h2>
+      <div class="flex gap-2">
+        <button id="enable-all-btn" class="text-xs text-green-400 hover:text-green-300 px-2 py-1 rounded border border-green-900/50 hover:border-green-700 transition-colors">Enable All</button>
+        <button id="disable-all-btn" class="text-xs text-gray-500 hover:text-gray-400 px-2 py-1 rounded border border-gray-700 hover:border-gray-600 transition-colors">Disable All</button>
+      </div>
+    </div>
+
+    {% if routes %}
+    <!-- Desktop table -->
+    <div class="hidden md:block overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-800 text-xs text-gray-500 uppercase tracking-wide">
+            <th class="text-left px-4 py-2.5">Origin</th>
+            <th class="text-left px-4 py-2.5">Destination</th>
+            <th class="text-left px-4 py-2.5">Status</th>
+            <th class="text-left px-4 py-2.5">Last Scanned</th>
+            <th class="text-right px-4 py-2.5">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-800/60">
+          {% for r in routes %}
+          <tr class="hover:bg-gray-800/30 transition-colors" id="route-row-{{ r.id }}">
+            <td class="px-4 py-3 font-mono font-bold text-white">{{ r.origin }}</td>
+            <td class="px-4 py-3 font-mono font-bold text-green-400">{{ r.destination }}</td>
+            <td class="px-4 py-3">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" class="route-toggle w-4 h-4 accent-green-500 cursor-pointer"
+                       data-id="{{ r.id }}" {% if r.enabled %}checked{% endif %} />
+                <span class="text-xs {% if r.enabled %}text-green-400{% else %}text-gray-600{% endif %}">
+                  {{ 'Enabled' if r.enabled else 'Disabled' }}
+                </span>
+              </label>
+            </td>
+            <td class="px-4 py-3 text-xs text-gray-600 font-mono">
+              {{ r.last_scanned_at.strftime('%m/%d %H:%M') if r.last_scanned_at else 'Never' }}
+            </td>
+            <td class="px-4 py-3 text-right">
+              <button class="route-delete text-xs text-red-500 hover:text-red-400 px-2 py-1 rounded
+                             border border-red-900/30 hover:border-red-700/50 transition-colors"
+                      data-id="{{ r.id }}">
+                Delete
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Mobile cards -->
+    <div class="md:hidden divide-y divide-gray-800/60">
+      {% for r in routes %}
+      <div class="flex items-center justify-between px-4 py-3" id="route-card-{{ r.id }}">
+        <div>
+          <span class="font-mono font-bold text-white">{{ r.origin }}</span>
+          <span class="text-green-500 mx-1">→</span>
+          <span class="font-mono font-bold text-green-400">{{ r.destination }}</span>
+          <p class="text-xs text-gray-600 mt-0.5">
+            Last: {{ r.last_scanned_at.strftime('%m/%d %H:%M') if r.last_scanned_at else 'Never' }}
+          </p>
+        </div>
+        <div class="flex items-center gap-3">
+          <input type="checkbox" class="route-toggle w-5 h-5 accent-green-500 cursor-pointer"
+                 data-id="{{ r.id }}" {% if r.enabled %}checked{% endif %} />
+          <button class="route-delete text-red-500 hover:text-red-400 text-xs px-2 py-1.5 rounded
+                         border border-red-900/30 transition-colors"
+                  data-id="{{ r.id }}">✕</button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    {% else %}
+    <div class="text-center py-10 text-gray-600 text-sm">
+      No routes configured. Add one above or import a CSV.
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const SEED_CSV = `origin,destination
+ATL,DEN
+ATL,LAS
+ATL,MCO
+ATL,PHL
+ATL,DFW
+ATL,MIA
+ATL,ORD
+ATL,LAX
+ATL,TPA
+ATL,FLL
+ATL,PHX
+ATL,SFO
+ATL,SAN
+ATL,CLE
+ATL,CVG
+ATL,RDU
+ATL,CLT
+ATL,BWI
+ATL,MDW`;
+
+async function bulkUpload(csvText) {
+  const form = new FormData();
+  form.append('csv_text', csvText);
+  const res = await fetch('/api/routes/bulk', { method: 'POST', body: form });
+  const data = await res.json();
+  const el = document.getElementById('csv-result');
+  el.textContent = `Added: ${data.added}, Skipped: ${data.skipped}${data.errors.length ? ' | Errors: ' + data.errors.join('; ') : ''}`;
+  el.classList.remove('hidden');
+  if (data.added > 0) setTimeout(() => location.reload(), 1200);
+}
+
+document.getElementById('load-csv-btn').addEventListener('click', async () => {
+  const text = document.getElementById('csv-text').value.trim();
+  if (!text) return;
+  await bulkUpload(text);
+});
+
+document.getElementById('load-seed-btn').addEventListener('click', async () => {
+  await bulkUpload(SEED_CSV);
+});
+
+document.getElementById('csv-file-input').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const text = await file.text();
+  document.getElementById('csv-text').value = text;
+});
+
+// Toggle enable/disable
+document.querySelectorAll('.route-toggle').forEach(cb => {
+  cb.addEventListener('change', async (e) => {
+    const id = e.target.dataset.id;
+    const enabled = e.target.checked;
+    await fetch(`/api/routes/${id}/toggle`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+    });
+    // Update status label if desktop view
+    const row = document.getElementById(`route-row-${id}`);
+    if (row) {
+      const span = row.querySelector('span');
+      if (span) {
+        span.textContent = enabled ? 'Enabled' : 'Disabled';
+        span.className = enabled ? 'text-xs text-green-400' : 'text-xs text-gray-600';
+      }
+    }
+  });
+});
+
+// Delete routes
+document.querySelectorAll('.route-delete').forEach(btn => {
+  btn.addEventListener('click', async (e) => {
+    const id = e.currentTarget.dataset.id;
+    if (!confirm('Delete this route?')) return;
+    const res = await fetch(`/api/routes/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      document.getElementById(`route-row-${id}`)?.remove();
+      document.getElementById(`route-card-${id}`)?.remove();
+    }
+  });
+});
+
+// Enable/disable all
+async function toggleAll(enabled) {
+  const toggles = document.querySelectorAll('.route-toggle');
+  for (const cb of toggles) {
+    const id = cb.dataset.id;
+    cb.checked = enabled;
+    await fetch(`/api/routes/${id}/toggle`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+    });
+  }
+}
+
+document.getElementById('enable-all-btn')?.addEventListener('click', () => toggleAll(true));
+document.getElementById('disable-all-btn')?.addEventListener('click', () => toggleAll(false));
+</script>
+{% endblock %}

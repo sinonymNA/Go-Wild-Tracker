@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoWild Radar — Login</title>
+  <script>tailwind.config = { darkMode: 'class' }</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/app.css" />
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen flex items-center justify-center p-4">
+  <div class="w-full max-w-sm">
+    <!-- Logo / header -->
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-green-950 border border-green-800 mb-4 glow-green">
+        <span class="text-3xl">✈️</span>
+      </div>
+      <h1 class="text-2xl font-bold text-white">GoWild Radar</h1>
+      <p class="text-gray-500 text-sm mt-1">Frontier GoWild Pass Tracker</p>
+    </div>
+
+    <!-- Login card -->
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-xl">
+      <h2 class="text-lg font-semibold text-gray-200 mb-4">Admin Login</h2>
+
+      {% if error %}
+      <div class="bg-red-950 border border-red-800 text-red-300 text-sm px-4 py-2.5 rounded-lg mb-4">
+        {{ error }}
+      </div>
+      {% endif %}
+
+      <form method="post" action="/login" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-400 mb-1.5" for="password">Password</label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            required
+            autocomplete="current-password"
+            class="w-full bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-4 py-3
+                   text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent
+                   placeholder-gray-600"
+            placeholder="Enter admin password"
+          />
+        </div>
+        <button
+          type="submit"
+          class="w-full bg-green-600 hover:bg-green-500 active:bg-green-700 text-white font-semibold
+                 py-3 rounded-xl transition-colors text-sm tracking-wide"
+        >
+          Sign In
+        </button>
+      </form>
+    </div>
+
+    <p class="text-center text-gray-600 text-xs mt-6">
+      Set <code class="text-gray-500">ADMIN_PASSWORD</code> in your environment
+    </p>
+  </div>
+</body>
+</html>

@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+{% block title %}GoWild Radar — Dashboard{% endblock %}
+
+{% block extra_head %}
+<!-- home_airport exposed for map.js -->
+<script>window.HOME_AIRPORT = "{{ home_airport }}";</script>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-screen-xl mx-auto px-3 pt-4 pb-2">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-4">
+    <div>
+      <h1 class="text-xl font-bold text-white flex items-center gap-2">
+        <span class="radar-pulse inline-block text-green-400">✈</span>
+        GoWild Radar
+      </h1>
+      <p class="text-xs text-gray-500 mt-0.5">Frontier GoWild Pass Availability</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <div id="scheduler-dot" class="w-2.5 h-2.5 rounded-full bg-gray-600 transition-colors" title="Scheduler status"></div>
+      <span class="text-xs text-gray-500 font-mono" id="home-airport-badge">
+        {{ home_airport }}
+      </span>
+    </div>
+  </div>
+
+  <!-- Stats grid -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-3">
+      <p class="text-xs text-gray-500 font-medium uppercase tracking-wide">Routes Active</p>
+      <p class="text-2xl font-bold text-white mt-1" id="stat-routes">—</p>
+    </div>
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-3">
+      <p class="text-xs text-gray-500 font-medium uppercase tracking-wide">Available Now</p>
+      <p class="text-2xl font-bold mt-1 transition-colors" id="stat-available">—</p>
+    </div>
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-3">
+      <p class="text-xs text-gray-500 font-medium uppercase tracking-wide">Errors</p>
+      <p class="text-2xl font-bold text-white mt-1" id="stat-errors">—</p>
+    </div>
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-3">
+      <p class="text-xs text-gray-500 font-medium uppercase tracking-wide">Last Scan</p>
+      <p class="text-sm font-semibold text-white mt-1 leading-tight" id="stat-last-scan">—</p>
+    </div>
+  </div>
+
+  <!-- Map -->
+  <div class="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden mb-4">
+    <div class="flex items-center justify-between px-3 py-2 border-b border-gray-800">
+      <h2 class="text-sm font-semibold text-gray-300">Route Map</h2>
+      <label class="flex items-center gap-2 cursor-pointer">
+        <span class="text-xs text-gray-500">Show unavailable</span>
+        <input type="checkbox" id="toggle-unavailable" checked
+               class="w-4 h-4 accent-green-500 cursor-pointer" />
+      </label>
+    </div>
+    <div id="map" class="w-full h-[320px] md:h-[460px]"></div>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 mb-4">
+    <div class="flex items-center justify-between mb-2 md:hidden">
+      <span class="text-sm font-semibold text-gray-300">Filters</span>
+      <button id="filter-toggle" class="text-xs text-green-400">Expand ▾</button>
+    </div>
+    <div id="filter-body" class="hidden md:flex flex-col md:flex-row gap-2 md:gap-3 md:items-end">
+      <div class="flex-1 min-w-0">
+        <label class="block text-xs text-gray-500 mb-1">Origin</label>
+        <input id="filter-origin" type="text" maxlength="3" placeholder="e.g. ATL"
+               class="w-full bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-3 py-2 text-sm
+                      uppercase focus:outline-none focus:ring-1 focus:ring-green-500" />
+      </div>
+      <div class="flex-1 min-w-0">
+        <label class="block text-xs text-gray-500 mb-1">Destination</label>
+        <input id="filter-dest" type="text" maxlength="3" placeholder="e.g. DEN"
+               class="w-full bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-3 py-2 text-sm
+                      uppercase focus:outline-none focus:ring-1 focus:ring-green-500" />
+      </div>
+      <div class="flex-1 min-w-0">
+        <label class="block text-xs text-gray-500 mb-1">Date</label>
+        <input id="filter-date" type="date"
+               class="w-full bg-gray-800 border border-gray-700 text-gray-400 rounded-lg px-3 py-2 text-sm
+                      focus:outline-none focus:ring-1 focus:ring-green-500" />
+      </div>
+      <div class="flex items-center gap-4 pt-4">
+        <label class="flex items-center gap-1.5 cursor-pointer">
+          <input type="checkbox" id="filter-nonstop" class="w-4 h-4 accent-green-500 cursor-pointer" />
+          <span class="text-xs text-gray-400">Nonstop only</span>
+        </label>
+        <label class="flex items-center gap-1.5 cursor-pointer">
+          <input type="checkbox" id="filter-available" class="w-4 h-4 accent-green-500 cursor-pointer" />
+          <span class="text-xs text-gray-400">Available only</span>
+        </label>
+      </div>
+      <button id="filter-apply" class="bg-green-700 hover:bg-green-600 text-white text-sm font-semibold
+                                        px-4 py-2 rounded-lg transition-colors whitespace-nowrap">
+        Apply
+      </button>
+    </div>
+  </div>
+
+  <!-- Route cards -->
+  <div>
+    <h2 class="text-sm font-semibold text-gray-400 mb-3 uppercase tracking-wide">Flight Results</h2>
+    <div id="route-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div class="col-span-full text-center py-10 text-gray-600 text-sm" id="cards-empty">
+        Loading results…
+      </div>
+    </div>
+    <div class="mt-4 text-center hidden" id="load-more-wrap">
+      <button id="load-more-btn" class="text-sm text-green-400 hover:text-green-300 underline underline-offset-2">
+        Load more
+      </button>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/map.js"></script>
+<script>
+// Stats & cards loader
+let currentOffset = 0;
+const PAGE_SIZE = 50;
+
+async function loadStats() {
+  try {
+    const res = await fetch('/api/stats');
+    const d = await res.json();
+
+    document.getElementById('stat-routes').textContent = d.enabled_routes ?? '—';
+    const avail = d.available_count ?? 0;
+    const availEl = document.getElementById('stat-available');
+    availEl.textContent = avail;
+    availEl.className = `text-2xl font-bold mt-1 transition-colors ${avail > 0 ? 'text-green-400 radar-pulse' : 'text-gray-500'}`;
+
+    document.getElementById('stat-errors').textContent = d.error_count ?? '—';
+
+    const lastScan = d.last_checked_at ? timeAgo(new Date(d.last_checked_at)) : 'Never';
+    document.getElementById('stat-last-scan').textContent = lastScan;
+
+    const dot = document.getElementById('scheduler-dot');
+    if (d.scheduler?.scan_in_progress) {
+      dot.className = 'w-2.5 h-2.5 rounded-full bg-yellow-400 animate-pulse';
+      dot.title = 'Scan in progress';
+    } else if (d.scheduler?.running && !d.scheduler?.paused) {
+      dot.className = 'w-2.5 h-2.5 rounded-full bg-green-500';
+      dot.title = 'Scheduler running';
+    } else if (d.scheduler?.paused) {
+      dot.className = 'w-2.5 h-2.5 rounded-full bg-yellow-500';
+      dot.title = 'Scheduler paused';
+    } else {
+      dot.className = 'w-2.5 h-2.5 rounded-full bg-gray-600';
+      dot.title = 'Scheduler stopped';
+    }
+  } catch (e) { console.warn('Stats load failed', e); }
+}
+
+function getFilters() {
+  return {
+    origin: document.getElementById('filter-origin')?.value.trim().toUpperCase() || '',
+    dest: document.getElementById('filter-dest')?.value.trim().toUpperCase() || '',
+    date: document.getElementById('filter-date')?.value || '',
+    nonstop_only: document.getElementById('filter-nonstop')?.checked || false,
+    available_only: document.getElementById('filter-available')?.checked || false,
+  };
+}
+
+async function loadResults(reset = false) {
+  if (reset) currentOffset = 0;
+  const f = getFilters();
+  const params = new URLSearchParams({ limit: PAGE_SIZE, offset: currentOffset });
+  if (f.origin) params.set('origin', f.origin);
+  if (f.dest) params.set('dest', f.dest);
+  if (f.date) params.set('date', f.date);
+  if (f.nonstop_only) params.set('nonstop_only', 'true');
+  if (f.available_only) params.set('available_only', 'true');
+
+  try {
+    const res = await fetch('/api/results?' + params);
+    const data = await res.json();
+    window._lastResults = data;
+    renderCards(data, reset);
+    if (typeof window.renderMap === 'function') window.renderMap(data);
+    currentOffset += data.length;
+    document.getElementById('load-more-wrap').classList.toggle('hidden', data.length < PAGE_SIZE);
+  } catch (e) { console.warn('Results load failed', e); }
+}
+
+function renderCards(results, reset = false) {
+  const container = document.getElementById('route-cards');
+  const empty = document.getElementById('cards-empty');
+
+  if (reset) {
+    // Remove old cards but keep the empty placeholder
+    Array.from(container.children).forEach(c => { if (c !== empty) c.remove(); });
+  }
+
+  if (results.length === 0 && reset) {
+    empty.textContent = 'No results yet. Trigger a scan to begin.';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  results.forEach(r => {
+    const card = document.createElement('div');
+    const avail = r.gowild_available;
+    card.className = `bg-gray-900 border rounded-xl p-4 transition-all ${
+      avail ? 'border-green-800/60 route-available glow-card' : 'border-gray-800 route-unavailable'
+    }`;
+
+    const badge = avail
+      ? `<span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-950 text-green-400 border border-green-800">✓ GoWild Available</span>`
+      : `<span class="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-800 text-gray-500 border border-gray-700">Unavailable</span>`;
+
+    const priceHtml = r.price_text
+      ? `<span class="text-xs text-green-400 font-mono">${r.price_text}</span>`
+      : '';
+
+    const typeHtml = r.is_nonstop
+      ? `<span class="text-xs text-blue-400 bg-blue-950/50 px-2 py-0.5 rounded-full border border-blue-900">Nonstop</span>`
+      : r.connection_info
+        ? `<span class="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full border border-gray-700">via ${r.connection_info}</span>`
+        : '';
+
+    const depDate = r.departure_date ? `<span class="text-xs text-gray-500">${r.departure_date}</span>` : '';
+    const depTime = r.departure_time ? `<span class="text-xs text-gray-400 font-mono">${r.departure_time}→${r.arrival_time || '?'}</span>` : '';
+    const lastChecked = r.checked_at ? `<span class="text-xs text-gray-600">Checked ${timeAgo(new Date(r.checked_at))}</span>` : '';
+
+    card.innerHTML = `
+      <div class="flex items-start justify-between gap-2 mb-3">
+        <div class="text-base font-bold text-white tracking-wide">
+          ${r.origin} <span class="text-green-500">→</span> ${r.destination}
+        </div>
+        ${badge}
+      </div>
+      <div class="flex flex-wrap items-center gap-2 mb-2">
+        ${depDate}${depTime}
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        ${priceHtml}${typeHtml}
+      </div>
+      <div class="mt-2">${lastChecked}</div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function timeAgo(date) {
+  const secs = Math.floor((Date.now() - date) / 1000);
+  if (secs < 60) return 'just now';
+  if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+  if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
+  return `${Math.floor(secs / 86400)}d ago`;
+}
+
+// Filter toggle on mobile
+document.getElementById('filter-toggle')?.addEventListener('click', () => {
+  const body = document.getElementById('filter-body');
+  const btn = document.getElementById('filter-toggle');
+  const hidden = body.classList.toggle('hidden');
+  btn.textContent = hidden ? 'Expand ▾' : 'Collapse ▴';
+});
+
+document.getElementById('filter-apply')?.addEventListener('click', () => loadResults(true));
+
+document.getElementById('load-more-btn')?.addEventListener('click', () => loadResults(false));
+
+// Initial load
+loadStats();
+loadResults(true);
+
+// Auto-refresh
+setInterval(() => { loadStats(); loadResults(true); }, 60000);
+</script>
+{% endblock %}

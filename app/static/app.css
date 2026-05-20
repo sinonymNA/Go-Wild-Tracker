@@ -1,0 +1,127 @@
+/* GoWild Radar — Custom styles */
+
+/* Radar glow for available routes */
+.glow-green {
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.5), 0 0 24px rgba(34, 197, 94, 0.2);
+}
+.glow-card {
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.15), 0 0 1px rgba(34, 197, 94, 0.4);
+}
+
+/* Radar pulse animation */
+@keyframes radarPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.7; transform: scale(1.08); }
+}
+.radar-pulse {
+  animation: radarPulse 2.2s ease-in-out infinite;
+  display: inline-block;
+}
+
+/* Route card left-border states */
+.route-available  { border-left-color: rgba(34, 197, 94, 0.6) !important; }
+.route-unavailable { opacity: 0.65; }
+
+/* Map container */
+#map {
+  z-index: 0;
+  background: #111827;
+}
+
+/* Leaflet dark popup */
+.leaflet-popup-content-wrapper {
+  background: #1f2937;
+  color: #f3f4f6;
+  border: 1px solid #374151;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+.leaflet-popup-tip-container { display: none; }
+.leaflet-popup-content {
+  margin: 12px 14px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.leaflet-popup-close-button {
+  color: #6b7280 !important;
+  font-size: 16px !important;
+  top: 6px !important;
+  right: 8px !important;
+}
+
+/* Map attribution */
+.leaflet-control-attribution {
+  background: rgba(3, 7, 18, 0.75) !important;
+  color: #4b5563 !important;
+  font-size: 9px;
+}
+.leaflet-control-attribution a { color: #6b7280 !important; }
+
+/* Map zoom control */
+.leaflet-control-zoom a {
+  background: #1f2937 !important;
+  color: #9ca3af !important;
+  border-color: #374151 !important;
+}
+.leaflet-control-zoom a:hover {
+  background: #374151 !important;
+  color: #f3f4f6 !important;
+}
+
+/* iOS safe area for bottom nav */
+.bottom-nav {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Custom scrollbar for dark theme */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: #030712; }
+::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+
+/* Home airport marker pulsing ring */
+@keyframes markerPulse {
+  0%   { transform: scale(1); opacity: 1; }
+  70%  { transform: scale(2.2); opacity: 0; }
+  100% { transform: scale(1); opacity: 0; }
+}
+.home-marker-ring {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  border: 2px solid #22c55e;
+  animation: markerPulse 2s ease-out infinite;
+}
+.home-marker-dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: #22c55e;
+  border: 2px solid #030712;
+  box-shadow: 0 0 8px #22c55e;
+}
+
+/* Destination marker */
+.dest-marker-avail {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: #22c55e;
+  border: 2px solid #030712;
+  box-shadow: 0 0 6px rgba(34,197,94,0.7);
+}
+.dest-marker-unavail {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #374151;
+  border: 1.5px solid #1f2937;
+}
+
+/* Map popup content */
+.map-popup { min-width: 180px; }
+.map-popup .popup-route { font-weight: 700; font-size: 13px; margin-bottom: 6px; color: #f3f4f6; }
+.map-popup .popup-avail { color: #4ade80; font-weight: 600; }
+.map-popup .popup-unavail { color: #6b7280; }
+.map-popup .popup-price { color: #86efac; font-family: monospace; }
+.map-popup .popup-meta { color: #6b7280; font-size: 10px; margin-top: 4px; }
+.map-popup a { color: #4ade80; text-decoration: underline; }
