@@ -93,17 +93,66 @@ ATL,MCO
 
 ## Enabling Real Scraping
 
-The real Frontier scraper is in `app/scraper.py`. After deploying with mock mode:
+The cloud environment (Railway) is blocked by Frontier's CDN, so selector discovery must happen on your local machine first.
 
-1. Set `DEBUG_SCREENSHOTS=true` and `HEADLESS=false` locally
-2. Set `MOCK_MODE=false`
-3. Trigger a scan
-4. Check `debug/` for screenshots and saved HTML
-5. Open the HTML in a browser, inspect the DOM, find the real CSS selectors
-6. Update the `SELECTOR_*` constants at the top of `scraper.py`
-7. Re-test until results parse correctly
+### Step 1 — Run the inspection tool locally
 
-**Important:** The scraper never solves captchas or bypasses security. If Frontier blocks the browser, the scan returns `BLOCKED_CAPTCHA` status and moves on.
+```bash
+# On your OWN machine (not Railway)
+pip install playwright
+playwright install chromium
+
+python tools/inspect_frontier.py --origin ATL --dest DEN --date 2025-08-15
+```
+
+A browser window opens and visits all Frontier URL candidates. Output:
+- `debug/0*_*.png` — screenshots showing what each URL loaded
+- `debug/0*_*_page.html` — full saved HTML
+- `debug/inspection_report.json` — structured selector report
+
+### Step 2 — Identify working URL + selectors
+
+Open the screenshots and find which URL shows flight results.
+Then open the matching `*_page.html` in Chrome → F12 → right-click a GoWild fare → Inspect.
+
+Look for `data-testid` attributes and class names near:
+| Element | What to search for |
+|---|---|
+| Flight result card | `data-testid="flight-result"` or class with `FlightResult` |
+| GoWild badge | `data-testid` or class containing `GoWild` / `gowild` |
+| Price / taxes | class containing `price`, `Price`, `fare-amount` |
+| Departure time | class containing `departure-time`, `DepartureTime` |
+| Arrival time | class containing `arrival-time`, `ArrivalTime` |
+| Nonstop text | text "Nonstop" or class with `nonstop` |
+
+### Step 3 — Update `app/scraper.py`
+
+Replace the `SELECTOR_*` constants at the top of the file with your real values.
+
+### Step 4 — Handle GoWild login (if fares require a pass login)
+
+If GoWild prices only appear when logged in:
+
+1. Log into `flyfrontier.com` in Chrome with your GoWild account
+2. Install **Cookie-Editor** extension → Export → copy JSON
+3. Save to `data/frontier_cookies.json`
+4. Rerun: `python tools/inspect_frontier.py --cookies data/frontier_cookies.json ...`
+5. The scraper auto-loads `data/frontier_cookies.json` on every real scan
+
+### Step 5 — Test with real mode
+
+```bash
+# In your .env:
+MOCK_MODE=false
+DEBUG_SCREENSHOTS=true
+HEADLESS=false     # see the browser window
+
+uvicorn app.main:app --reload
+# Trigger one scan from the dashboard
+# Logs page shows raw_status: GOWILD_AVAILABLE / NO_GOWILD_FARE / BLOCKED_CAPTCHA
+```
+
+**Important:** The scraper never solves captchas or bypasses security. If Frontier blocks the browser, it returns `BLOCKED_CAPTCHA` and moves to the next route.
 
 ---
 
