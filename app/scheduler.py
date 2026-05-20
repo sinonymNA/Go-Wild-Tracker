@@ -14,7 +14,7 @@ from app.config import get_settings
 from app.database import AsyncSessionLocal
 from app.models import AppSettings, ScanResult
 from app.routes_manager import get_enabled_routes
-from app.scraper import GoWildScraper
+from app.scraper import GoWildScraper, get_disabled_dates
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +83,24 @@ async def run_scan_job() -> None:
             new_results: list[ScanResult] = []
 
             for route in routes_to_scan:
+                # Fetch disabled dates for this route (skips dates with no service)
+                # Only do this in real mode — mock mode doesn't need it
+                disabled: set[datetime.date] = set()
+                if not get_settings().MOCK_MODE:
+                    try:
+                        disabled = await get_disabled_dates(route.origin, route.destination)
+                        if disabled:
+                            logger.info(
+                                "%s→%s: %d disabled dates skipped",
+                                route.origin, route.destination, len(disabled),
+                            )
+                    except Exception as exc:
+                        logger.debug("get_disabled_dates failed: %s", exc)
+
                 for scan_date in scan_dates:
+                    if scan_date in disabled:
+                        continue  # No flights on this date — skip
+
                     result = await scraper.search_route(route.origin, route.destination, scan_date)
                     db.add(result)
                     new_results.append(result)

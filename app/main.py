@@ -334,6 +334,60 @@ async def api_bulk_routes(
 
 
 # ---------------------------------------------------------------------------
+# API — results batch (used by local_scanner.py to push from residential IP)
+# ---------------------------------------------------------------------------
+
+@app.post("/api/results/batch")
+async def api_results_batch(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(require_auth),
+):
+    import datetime as dt
+    body = await request.json()
+    if not isinstance(body, list):
+        raise HTTPException(400, "Expected a JSON array of result objects")
+
+    new_results: list[ScanResult] = []
+    for item in body:
+        dep_date = None
+        if item.get("departure_date"):
+            try:
+                dep_date = dt.date.fromisoformat(item["departure_date"])
+            except ValueError:
+                pass
+
+        row = ScanResult(
+            origin=item.get("origin", ""),
+            destination=item.get("destination", ""),
+            origin_lat=item.get("origin_lat"),
+            origin_lon=item.get("origin_lon"),
+            dest_lat=item.get("dest_lat"),
+            dest_lon=item.get("dest_lon"),
+            departure_date=dep_date,
+            departure_time=item.get("departure_time"),
+            arrival_time=item.get("arrival_time"),
+            connection_info=item.get("connection_info"),
+            is_nonstop=bool(item.get("is_nonstop", False)),
+            gowild_available=bool(item.get("gowild_available", False)),
+            price_text=item.get("price_text"),
+            raw_status=item.get("raw_status", ""),
+            scan_duration_ms=item.get("scan_duration_ms"),
+            error=item.get("error"),
+        )
+        db.add(row)
+        new_results.append(row)
+
+    await db.flush()
+    await db.commit()
+
+    from app.alerts import check_and_send_alerts
+    await check_and_send_alerts(db, new_results)
+
+    return {"status": "ok", "inserted": len(new_results)}
+
+
+# ---------------------------------------------------------------------------
 # API — settings
 # ---------------------------------------------------------------------------
 
