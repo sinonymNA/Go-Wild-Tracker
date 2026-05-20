@@ -43,6 +43,29 @@ async def _get_setting(db: AsyncSession, key: str, default: str) -> str:
     return row.value if row else default
 
 
+async def _get_recent_scans(
+    db: AsyncSession,
+    origin: str,
+    destination: str,
+    since: datetime.datetime,
+) -> dict[datetime.date, ScanResult]:
+    """Bulk-fetch the most recent scan per departure date for a route since `since`."""
+    result = await db.execute(
+        select(ScanResult)
+        .where(
+            ScanResult.origin == origin,
+            ScanResult.destination == destination,
+            ScanResult.checked_at >= since,
+        )
+        .order_by(ScanResult.departure_date, ScanResult.checked_at.desc())
+    )
+    by_date: dict[datetime.date, ScanResult] = {}
+    for row in result.scalars().all():
+        if row.departure_date not in by_date:
+            by_date[row.departure_date] = row
+    return by_date
+
+
 async def run_scan_job() -> None:
     global _scan_running, _last_run_at, _last_run_duration_s
 
@@ -72,6 +95,9 @@ async def run_scan_job() -> None:
             dates_ahead = int(
                 await _get_setting(db, "SCAN_DATES_AHEAD", str(settings.SCAN_DATES_AHEAD))
             )
+            stale_hours = int(
+                await _get_setting(db, "SCAN_STALE_HOURS", str(settings.SCAN_STALE_HOURS))
+            )
 
             routes_to_scan = routes[:max_routes]
             scan_dates = [
@@ -97,9 +123,24 @@ async def run_scan_job() -> None:
                     except Exception as exc:
                         logger.debug("get_disabled_dates failed: %s", exc)
 
+                # Pre-fetch recently scanned results for this route so we can skip
+                # unavailable dates that were checked within stale_hours. Available
+                # dates are always rescanned so we catch when inventory disappears.
+                stale_cutoff = datetime.datetime.utcnow() - datetime.timedelta(hours=stale_hours)
+                recent: dict[datetime.date, ScanResult] = {}
+                if stale_hours > 0:
+                    recent = await _get_recent_scans(db, route.origin, route.destination, stale_cutoff)
+
+                skipped_stale = 0
                 for scan_date in scan_dates:
                     if scan_date in disabled:
-                        continue  # No flights on this date — skip
+                        continue
+
+                    # Skip dates scanned recently that had no GoWild availability.
+                    # Always rescan dates that showed availability so we track changes.
+                    if scan_date in recent and not recent[scan_date].gowild_available:
+                        skipped_stale += 1
+                        continue
 
                     result = await scraper.search_route(route.origin, route.destination, scan_date)
                     db.add(result)
@@ -111,6 +152,12 @@ async def run_scan_job() -> None:
 
                     if delay > 0:
                         await asyncio.sleep(delay)
+
+                if skipped_stale:
+                    logger.info(
+                        "%s→%s: skipped %d recently-scanned unavailable dates (stale_hours=%d)",
+                        route.origin, route.destination, skipped_stale, stale_hours,
+                    )
 
                 # Update last_scanned_at on the route
                 route.last_scanned_at = datetime.datetime.utcnow()

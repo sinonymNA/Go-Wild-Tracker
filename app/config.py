@@ -15,7 +15,11 @@ class Settings(BaseSettings):
     SCAN_INTERVAL_MINUTES: int = 60
     MAX_ROUTES_PER_SCAN: int = 10
     DELAY_BETWEEN_SEARCHES_SECONDS: float = 5.0
-    SCAN_DATES_AHEAD: int = 14
+    SCAN_DATES_AHEAD: int = 90
+    # Skip a (route, date) pair that was scanned within this many hours and
+    # was unavailable. Set to 0 to always rescan everything. Available results
+    # are always rescanned regardless of this setting.
+    SCAN_STALE_HOURS: int = 6
     HEADLESS: bool = True
     DEBUG_SCREENSHOTS: bool = False
     SECRET_KEY: str = "change-me-in-production"
