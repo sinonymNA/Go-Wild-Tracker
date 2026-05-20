@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     HEADLESS: bool = True
     DEBUG_SCREENSHOTS: bool = False
     SECRET_KEY: str = "change-me-in-production"
+    PROXY_URL: str | None = None  # e.g. http://user:pass@gate.smartproxy.com:10000
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

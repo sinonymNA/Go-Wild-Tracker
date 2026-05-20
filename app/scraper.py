@@ -266,6 +266,16 @@ _NONSTOP_PAIRS: set[frozenset[str]] = {
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# HTTP client factory — applies proxy when PROXY_URL is set
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _make_client(**kwargs) -> httpx.AsyncClient:
+    """Build an httpx.AsyncClient, routing through PROXY_URL when configured."""
+    proxy = get_settings().PROXY_URL or None
+    return httpx.AsyncClient(proxy=proxy, **kwargs)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Scraper
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -358,7 +368,7 @@ class GoWildScraper:
         }
 
         try:
-            async with httpx.AsyncClient(
+            async with _make_client(
                 cookies=cookies,
                 headers=headers,
                 follow_redirects=True,
@@ -368,9 +378,9 @@ class GoWildScraper:
                 response = await client.get(url)
 
             if response.status_code == 403:
-                logger.warning("403 Forbidden for %s→%s — may need session cookies", origin, destination)
+                logger.warning("403 Forbidden for %s→%s — residential proxy required", origin, destination)
                 result = ScanResult(**error_base, raw_status="BLOCKED_403")
-                result.error = "HTTP 403 — try adding session cookies to data/frontier_cookies.json"
+                result.error = "HTTP 403 — set PROXY_URL to a residential proxy (Frontier blocks datacenter IPs)"
                 result.scan_duration_ms = int((time.monotonic() - start) * 1000)
                 return result
 
@@ -447,7 +457,7 @@ async def get_disabled_dates(origin: str, dest: str) -> set[datetime.date]:
     """
     url = _build_schedule_url(origin, dest)
     try:
-        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+        async with _make_client(timeout=15.0, follow_redirects=True) as client:
             resp = await client.get(
                 url,
                 headers={"User-Agent": random.choice(_USER_AGENTS)},
